@@ -1,20 +1,23 @@
 """
 Model registry + lazy-loading cache.
 
-Reuses the exact same builder logic as the original Gradio app.py:
-  - EfficientNet-B3 / EfficientNet-B0 -> timm, num_classes swapped
-  - MobileNetV3                        -> torchvision mobilenet_v3_large,
-                                           classifier[-1] swapped
-  - Hybrid (DFCViT-4C)                  -> custom architecture from
-                                           app/models/hybrid_model.py
+Same builder logic as before (EfficientNet-B3/B0 via timm, MobileNetV3 via
+torchvision, Hybrid DFCViT-4C custom architecture).
 
-Models are only loaded into memory the first time they're requested
-(get_model), then cached in _MODEL_CACHE for the lifetime of the process.
-This is important on Render's free/low tiers — don't reload a model on
-every request.
+IMPORTANT CHANGE: Render's free tier only has 512MB RAM. Caching all 4
+models simultaneously (as the original version did) can exceed that once
+a user tries more than one or two models in a session, causing the
+instance to be OOM-killed (502 Bad Gateway).
+
+This version keeps only the MOST RECENTLY USED model in memory
+(MAX_CACHED_MODELS = 1). Switching models will re-load from disk each
+time — slightly slower, but keeps the app alive on the free tier. Raise
+MAX_CACHED_MODELS if you upgrade to a paid Render plan with more RAM.
 """
 
+import gc
 import os
+from collections import OrderedDict
 
 import timm
 import torch
@@ -23,6 +26,12 @@ from torchvision import models
 
 from app.config import DEVICE, MODEL_FILES, MODELS_DIR, NUM_CLASSES
 from app.models.hybrid_model import DFCViT4C
+
+# Keep PyTorch's own thread pool small too — on a small Render instance,
+# torch defaulting to using many threads for CPU inference can itself add
+# memory/CPU overhead. 1-2 is plenty for single-image inference.
+torch.set_num_threads(1)
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # Builders — one per architecture family
@@ -52,8 +61,6 @@ def build_hybrid(weight_file: str) -> nn.Module:
 
 # ─────────────────────────────────────────────────────────────────────────
 # Registry: display name -> (builder, Grad-CAM target layer getter)
-# The display names here are the source of truth for GET /models and for
-# the `model_name` field accepted by POST /predict.
 # ─────────────────────────────────────────────────────────────────────────
 MODEL_REGISTRY = {
     "EfficientNet-B3": {
@@ -74,21 +81,35 @@ MODEL_REGISTRY = {
     },
 }
 
-_MODEL_CACHE: dict[str, nn.Module] = {}
+# ─────────────────────────────────────────────────────────────────────────
+# LRU cache — keeps at most MAX_CACHED_MODELS models in memory at once.
+# On a 512MB Render free instance, 1 is the safe default.
+# ─────────────────────────────────────────────────────────────────────────
+MAX_CACHED_MODELS = int(os.environ.get("MAX_CACHED_MODELS", "1"))
+
+_MODEL_CACHE: "OrderedDict[str, nn.Module]" = OrderedDict()
 
 
 def get_model(name: str) -> nn.Module:
     """Return a cached, eval-mode model instance for the given display name.
-    Builds + loads weights only on first call for that name."""
+    Evicts the least-recently-used model if the cache is full."""
     if name not in MODEL_REGISTRY:
         raise ValueError(
             f"Unknown model '{name}'. Available models: {list(MODEL_REGISTRY.keys())}"
         )
 
-    if name not in _MODEL_CACHE:
-        model = MODEL_REGISTRY[name]["builder"]()
-        model.to(DEVICE).eval()
-        _MODEL_CACHE[name] = model
+    if name in _MODEL_CACHE:
+        _MODEL_CACHE.move_to_end(name)  # mark as most-recently-used
+        return _MODEL_CACHE[name]
+
+    model = MODEL_REGISTRY[name]["builder"]()
+    model.to(DEVICE).eval()
+    _MODEL_CACHE[name] = model
+
+    while len(_MODEL_CACHE) > MAX_CACHED_MODELS:
+        evicted_name, evicted_model = _MODEL_CACHE.popitem(last=False)
+        del evicted_model
+        gc.collect()
 
     return _MODEL_CACHE[name]
 
