@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env
+app/static/temp/*
+!app/static/temp/.gitkeep
+.DS_Store
+*.egg-info/
+.idea/
+.vscode/
