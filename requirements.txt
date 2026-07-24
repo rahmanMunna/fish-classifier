@@ -7,7 +7,5 @@ torchvision
 timm
 Pillow
 numpy
-opencv-python-headless
-grad-cam
 reportlab
 pydantic
