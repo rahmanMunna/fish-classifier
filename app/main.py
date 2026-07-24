@@ -27,16 +27,10 @@ app = FastAPI(
     description="REST API backend for the Carp Fish Species Classification thesis project.",
     version="0.1.0",
 )
-
-# CORS — wide open for now during local development.
-# Restrict allow_origins to the deployed Vercel URL in Phase 10.
-# Replace allow_origins=["*"] with your actual frontend domain(s) once deployed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
