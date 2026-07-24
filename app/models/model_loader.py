@@ -38,7 +38,7 @@ torch.set_num_threads(1)
 # ─────────────────────────────────────────────────────────────────────────
 def build_efficientnet(variant: str, weight_file: str) -> nn.Module:
     m = timm.create_model(variant, pretrained=False, num_classes=NUM_CLASSES)
-    state = torch.load(os.path.join(MODELS_DIR, weight_file), map_location=DEVICE)
+    state = torch.load(os.path.join(MODELS_DIR, weight_file), map_location=DEVICE,weights_only=False)
     m.load_state_dict(state)
     return m
 
@@ -47,14 +47,14 @@ def build_mobilenetv3(weight_file: str) -> nn.Module:
     m = models.mobilenet_v3_large(weights=None)
     in_features = m.classifier[-1].in_features
     m.classifier[-1] = nn.Linear(in_features, NUM_CLASSES)
-    state = torch.load(os.path.join(MODELS_DIR, weight_file), map_location=DEVICE)
+    state = torch.load(os.path.join(MODELS_DIR, weight_file), map_location=DEVICE,weights_only=False)
     m.load_state_dict(state)
     return m
 
 
 def build_hybrid(weight_file: str) -> nn.Module:
     m = DFCViT4C(NUM_CLASSES)
-    state = torch.load(os.path.join(MODELS_DIR, weight_file), map_location=DEVICE)
+    state = torch.load(os.path.join(MODELS_DIR, weight_file), map_location=DEVICE,weights_only=False)
     m.load_state_dict(state)
     return m
 
