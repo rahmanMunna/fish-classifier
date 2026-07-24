@@ -9,4 +9,4 @@ app/static/temp/*
 .DS_Store
 *.egg-info/
 .idea/
-.vscode/
+.vscode/Models/*.pt
