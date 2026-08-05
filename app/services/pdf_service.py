@@ -69,24 +69,44 @@ def generate_pdf_report(
     orig_buf.seek(0)
 
     # Grad-CAM image (decoded from Base64 sent in by the route)
-    cam_bytes = base64.b64decode(gradcam_base64)
-    cam_buf = io.BytesIO(cam_bytes)
+    # cam_bytes = base64.b64decode(gradcam_base64)
+    # cam_buf = io.BytesIO(cam_bytes)
 
+    # img_table = Table([[
+    #     RLImage(orig_buf, width=70 * mm, height=70 * mm),
+    #     RLImage(cam_buf, width=70 * mm, height=70 * mm),
+    # ]])
+    # img_table.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
+    # elements.append(img_table)
+
+    # caption_table = Table([["Original Image (resized)", "Grad-CAM Heatmap (XAI)"]],
+    #                        colWidths=[75 * mm, 75 * mm])
+    # caption_table.setStyle(TableStyle([
+    #     ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    #     ("FONTSIZE", (0, 0), (-1, -1), 9),
+    #     ("TEXTCOLOR", (0, 0), (-1, -1), colors.grey),
+    # ]))
+    # elements.append(caption_table)
+    
+    
     img_table = Table([[
-        RLImage(orig_buf, width=70 * mm, height=70 * mm),
-        RLImage(cam_buf, width=70 * mm, height=70 * mm),
+        RLImage(orig_buf, width=90 * mm, height=90 * mm),
+        # RLImage(cam_buf, width=70 * mm, height=70 * mm),
     ]])
     img_table.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER")]))
     elements.append(img_table)
 
-    caption_table = Table([["Original Image (resized)", "Grad-CAM Heatmap (XAI)"]],
-                           colWidths=[75 * mm, 75 * mm])
+    caption_table = Table([["Original Image (resized)"]],
+                           colWidths=[100 * mm])
     caption_table.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("TEXTCOLOR", (0, 0), (-1, -1), colors.grey),
     ]))
     elements.append(caption_table)
+    
+   
+    
     elements.append(Spacer(1, 16))
 
     elements.append(Paragraph("Prediction Result", styles["Heading2"]))
